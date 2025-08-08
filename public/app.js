@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 1000);
 });
 
-const API_BASE = "https://knockouts-generator.onrender.com";
+const API_BASE = "https://knockouts-generator.onrender.com" || "localhost:3001";
 
 async function apiCall(endpoint, options = {}) {
   try {
@@ -90,6 +90,7 @@ async function createTournamentWithPDF() {
     }
   } catch (error) {
     document.getElementById("response").textContent = `Error: ${error.message}`;
+    console.log(error);
   }
 }
 
