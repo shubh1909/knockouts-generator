@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 1000);
 });
 
-const API_BASE = "http://localhost:3001";
+const API_BASE = "knockouts-generator-3ipz.vercel.app";
 
 async function apiCall(endpoint, options = {}) {
   try {
