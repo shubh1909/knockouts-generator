@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knockout Tournament API v2.0 Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+      h1,
+      h2,
+      h3 {
+        color: #333;
+      }
+      .subtitle {
+        color: #666;
+        font-style: italic;
+        margin-bottom: 20px;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+        font-size: 14px;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      button.success {
+        background: #28a745;
+      }
+      button.success:hover {
+        background: #1e7e34;
+      }
+      .response {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        max-height: 400px;
+        overflow-y: auto;
+        font-size: 12px;
+      }
+      .input-group {
+        margin: 15px 0;
+      }
+      .input-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      .input-group input,
+      .input-group textarea,
+      .input-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .endpoint-section {
+        background: #e9f7ef;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 15px 0;
+        border-left: 4px solid #28a745;
+      }
+      .features {
+        background: #fff3cd;
+        padding: 15px;
+        border-radius: 4px;
+        border-left: 4px solid #ffc107;
+        margin: 15px 0;
+      }
+      .features ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+      .api-info {
+        background: #d1ecf1;
+        padding: 15px;
+        border-radius: 4px;
+        border-left: 4px solid #17a2b8;
+        margin: 15px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🏆 Knockout Tournament API</h1>
+
+    <div class="container">
+      <h2>🔍 API Status</h2>
+      <button id="checkHealthBtn">Check Health</button>
+      <button id="getAPIInfoBtn">Get API Documentation</button>
+      <div id="status-response" class="response"></div>
+    </div>
+
+    <div class="container">
+      <h2>🎯 Tournament Creation</h2>
+
+      <div class="input-group">
+        <label>Tournament Name:</label>
+        <input
+          type="text"
+          id="tournamentName"
+          placeholder="Premier League Cup"
+          value="Champions League 2025"
+        />
+      </div>
+
+      <div class="input-group">
+        <label>PDF Title (optional):</label>
+        <input
+          type="text"
+          id="pdfTitle"
+          placeholder="Custom PDF title (leave empty to use tournament name)"
+          value=""
+        />
+      </div>
+
+      <div class="input-group">
+        <label>Participants (one per line):</label>
+        <textarea
+          id="participants"
+          rows="8"
+          placeholder="Manchester United&#10;Chelsea&#10;Arsenal&#10;Liverpool"
+        >
+Manchester United
+Chelsea
+Arsenal
+Liverpool
+Manchester City
+Tottenham
+West Ham
+Leicester City</textarea
+        >
+      </div>
+
+      <div class="endpoint-section">
+        <h3>📄 Endpoint 1: Create Tournament + PDF</h3>
+        <p>
+          <strong>POST</strong> <code>/api/tournaments/create-with-pdf</code>
+        </p>
+        <p>
+          Creates tournament fixture and returns PDF with different response
+          options.
+        </p>
+
+        <div class="input-group">
+          <label>Response Type:</label>
+          <select id="returnType">
+            <option value="json">JSON Response (with tournament data)</option>
+            <option value="download" selected>Direct PDF Download</option>
+            <option value="url">URL Response (for later download)</option>
+          </select>
+        </div>
+
+        <button id="createTournamentBtn" class="success">
+          🎯 Create Tournament + PDF
+        </button>
+      </div>
+
+      <div class="endpoint-section">
+        <h3>⚡ Endpoint 2: Quick PDF</h3>
+        <p><strong>POST</strong> <code>/api/tournaments/quick-pdf</code></p>
+        <p>
+          Creates tournament fixture and immediately downloads PDF (no data
+          storage).
+        </p>
+
+        <button id="quickPDFBtn" class="success">⚡ Quick PDF Download</button>
+      </div>
+
+      <div id="response" class="response"></div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
