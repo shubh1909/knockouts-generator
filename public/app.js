@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 1000);
 });
 
-const API_BASE = "https://knockouts-generator.onrender.com/";
+const API_BASE = "https://knockouts-generator.onrender.com";
 
 async function apiCall(endpoint, options = {}) {
   try {
