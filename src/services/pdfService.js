@@ -71,39 +71,23 @@ export async function createTournamentPDF(
   // Track positions of each match box for connecting lines
   const matchPositions = {};
 
-  // Draw first round matches and record their positions
-  const firstRoundMatches = tournament.bracket.filter((m) => m.round === 1);
-  firstRoundMatches.forEach((match, index) => {
-    const baseY = height - margin - 80 - index * matchSpacing;
-    if (match.participant1?.bye && match.participant2)
-      match.winner = match.participant2;
-    else if (match.participant2?.bye && match.participant1)
-      match.winner = match.participant1;
-    drawMatchContainer(page, {
-      x: margin,
-      y: baseY,
-      width: columnWidth - 20,
-      height: matchHeight - bracketPadding,
-      match,
-      font,
-      boldFont,
-    });
-    // Save position for connecting lines
-    matchPositions[match.matchId] = {
-      x: margin,
-      y: baseY,
-      width: columnWidth - 20,
-      height: matchHeight - bracketPadding,
-    };
-  });
-
-  // Draw subsequent rounds and record positions
-  for (let round = 2; round <= tournament.rounds; round++) {
+  // Center-align matches for each round
+  for (let round = 1; round <= tournament.rounds; round++) {
     const roundMatches = tournament.bracket.filter((m) => m.round === round);
-    const spacingMultiplier = Math.pow(2, round - 1);
+    const spacingMultiplier = round === 1 ? 1 : Math.pow(2, round - 1);
     const roundSpacing = matchSpacing * spacingMultiplier;
+    const totalMatchesHeight =
+      (roundMatches.length - 1) * roundSpacing + matchHeight;
+    const startY =
+      height - margin - 80 - totalMatchesHeight / 2 + matchHeight / 2;
     roundMatches.forEach((match, index) => {
-      const baseY = height - margin - 80 - index * roundSpacing;
+      const baseY = startY - index * roundSpacing;
+      if (round === 1) {
+        if (match.participant1?.bye && match.participant2)
+          match.winner = match.participant2;
+        else if (match.participant2?.bye && match.participant1)
+          match.winner = match.participant1;
+      }
       drawMatchContainer(page, {
         x: margin + (round - 1) * columnWidth,
         y: baseY,
