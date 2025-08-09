@@ -1,16 +1,78 @@
+const API_BASE =
+  "https://knockouts-generator.onrender.com" || "https://localhost:3001";
+
 document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("createTournamentBtn")
     .addEventListener("click", createTournamentWithPDF);
   document.getElementById("quickPDFBtn").addEventListener("click", quickPDF);
+  document
+    .getElementById("pdfToJsonForm")
+    .addEventListener("submit", handlePdfToJson);
+  document
+    .getElementById("copyJsonBtn")
+    .addEventListener("click", copyJsonToClipboard);
   checkHealth();
   setTimeout(() => {
     document.getElementById("response").textContent =
       "🚀 Welcome to Knockout Tournament API v2.0!\n\nThis simplified version focuses on the essential functionality:\n• Create tournament fixtures from participant lists\n• Generate and download PDF brackets\n• ES6 modules architecture\n• Streamlined endpoints\n\nTry creating a tournament above! ⬆️";
   }, 1000);
 });
-
-const API_BASE = "https://knockouts-generator.onrender.com" || "localhost:3001";
+// Copy JSON to clipboard handler
+function copyJsonToClipboard() {
+  const jsonText = document.getElementById("pdf-json-response").textContent;
+  if (!jsonText) return;
+  navigator.clipboard
+    .writeText(jsonText)
+    .then(() => {
+      document.getElementById("copyJsonBtn").textContent = "✅";
+      setTimeout(() => {
+        document.getElementById("copyJsonBtn").textContent = "📋";
+      }, 1200);
+    })
+    .catch(() => {
+      document.getElementById("copyJsonBtn").textContent = "❌";
+      setTimeout(() => {
+        document.getElementById("copyJsonBtn").textContent = "📋";
+      }, 1200);
+    });
+}
+// PDF to JSON API call handler
+async function handlePdfToJson(e) {
+  e.preventDefault();
+  const fileInput = document.getElementById("pdfFile");
+  const file = fileInput.files[0];
+  if (!file) {
+    document.getElementById("pdf-json-response").textContent =
+      "Please select a PDF file.";
+    return;
+  }
+  const formData = new FormData();
+  formData.append("pdf", file);
+  try {
+    const response = await fetch(`${API_BASE}/api/tournaments/pdf-to-json`, {
+      method: "POST",
+      body: formData,
+    });
+    if (response.ok) {
+      const data = await response.json();
+      document.getElementById("pdf-json-response").textContent = JSON.stringify(
+        data,
+        null,
+        2
+      );
+    } else {
+      const errorData = await response.json();
+      document.getElementById(
+        "pdf-json-response"
+      ).textContent = `Error: ${errorData.message}`;
+    }
+  } catch (error) {
+    document.getElementById(
+      "pdf-json-response"
+    ).textContent = `Error: ${error.message}`;
+  }
+}
 
 async function apiCall(endpoint, options = {}) {
   try {
