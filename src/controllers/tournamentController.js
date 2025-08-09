@@ -1,3 +1,5 @@
+import PDFParser from "pdf2json";
+
 import { createKnockoutFixture } from "../services/tournamentService.js";
 import { createTournamentPDF } from "../services/pdfService.js";
 import path from "path";
@@ -158,6 +160,91 @@ class TournamentController {
         success: false,
         message: error.message,
       });
+    }
+  }
+
+  async pdfToJson(req, res) {
+    try {
+      // Assuming file is uploaded via multer and available as req.file.path
+      const pdfPath = req.file?.path;
+      if (!pdfPath) {
+        console.error("No PDF file uploaded.");
+        return res
+          .status(400)
+          .json({ success: false, message: "No PDF file uploaded." });
+      }
+
+      const pdfParser = new PDFParser();
+
+      pdfParser.on("pdfParser_dataError", (errData) => {
+        console.error("PDF parsing error:", errData.parserError);
+        return res.status(500).json({
+          success: false,
+          message: "PDF parsing error",
+          error: errData.parserError,
+        });
+      });
+
+      pdfParser.on("pdfParser_dataReady", (pdfData) => {
+        console.log("PDF parsed successfully.");
+        try {
+          // Extract matches from pdfData
+          const page = pdfData?.Pages?.[0];
+          const texts = page?.Texts || [];
+          const decode = (t) => decodeURIComponent(t);
+          // Find all match IDs and their positions
+          const matchTexts = texts.filter((txt) =>
+            txt.R[0].T.match(/^R\d+M\d+$/)
+          );
+          // Find all team names (exclude match IDs and round headers)
+          const teamTexts = texts.filter((txt) => {
+            const t = txt.R[0].T;
+            return (
+              !t.match(/^R\d+M\d+$/) &&
+              !t.match(/Round|Final|Semi-Final|Quarter-Final|Status|Champions/)
+            );
+          });
+          teamTexts.sort((a, b) => a.y - b.y);
+          // Group matches by round
+          const rounds = {};
+          for (let i = 0; i < matchTexts.length; i++) {
+            const matchId = decode(matchTexts[i].R[0].T);
+            const roundMatch = matchId.match(/^R(\d+)M(\d+)$/);
+            const roundNum = roundMatch ? parseInt(roundMatch[1]) : 1;
+            // Find two closest teams above this matchId (by y position)
+            const teams = teamTexts
+              .filter((t) => t.y < matchTexts[i].y)
+              .slice(-2)
+              .map((t) => decode(t.R[0].T));
+            if (!rounds[roundNum]) rounds[roundNum] = [];
+            rounds[roundNum].push({ matchId, teams });
+          }
+          return res.json({ success: true, rounds });
+        } catch (parseErr) {
+          console.error("Error parsing PDF to JSON:", parseErr);
+          return res.status(500).json({
+            success: false,
+            message: "Error parsing PDF to JSON",
+            error: parseErr.message,
+          });
+        }
+      });
+
+      try {
+        pdfParser.loadPDF(pdfPath);
+      } catch (loadErr) {
+        console.error("Error loading PDF:", loadErr);
+        return res.status(500).json({
+          success: false,
+          message: "Error loading PDF",
+          error: loadErr.message,
+        });
+      }
+    } catch (err) {
+      console.error("Server error in pdfToJson:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Server error", error: err.message });
     }
   }
 }

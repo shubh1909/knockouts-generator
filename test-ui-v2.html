@@ -193,6 +193,114 @@ Leicester City</textarea
       <div id="response" class="response"></div>
     </div>
 
+    <!-- <div class="container">
+      <h2>📤 PDF to JSON (Parse Tournament PDF)</h2>
+      <form id="pdfToJsonForm">
+        <div class="input-group">
+          <label for="pdfFile">Upload Tournament PDF:</label>
+          <input
+            type="file"
+            id="pdfFile"
+            name="pdfFile"
+            accept="application/pdf"
+            required
+          />
+        </div>
+        <button type="submit" class="success">Parse PDF to JSON</button>
+      </form>
+      <div style="display: flex; align-items: flex-start; gap: 8px">
+        <pre
+          id="pdf-json-response"
+          class="response"
+          style="
+            flex: 1;
+            margin: 0;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+          "
+        ></pre>
+        <button
+          id="copyJsonBtn"
+          title="Copy JSON"
+          style="
+            background: #ffc107;
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 16px;
+            height: 40px;
+            align-self: flex-start;
+          "
+        >
+          📋
+        </button>
+      </div>
+    </div> -->
+    <div class="endpoint-section">
+      <h3>📤 Endpoint 3: PDF to JSON Converter</h3>
+      <p><strong>POST</strong> <code>/api/tournaments/pdf-to-json</code></p>
+      <p>
+        Upload a tournament PDF and get the fixture data as JSON, grouped by
+        round.
+      </p>
+      <form id="pdfToJsonForm" style="margin-bottom: 10px">
+        <div class="input-group">
+          <label for="pdfFile">Upload Tournament PDF:</label>
+          <input
+            type="file"
+            id="pdfFile"
+            name="pdfFile"
+            accept="application/pdf"
+            required
+          />
+        </div>
+        <button type="submit" class="success">Parse PDF to JSON</button>
+      </form>
+      <div style="display: flex; align-items: flex-start; gap: 8px">
+        <pre
+          id="pdf-json-response"
+          class="response"
+          style="
+            flex: 1;
+            margin: 0;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+          "
+        ></pre>
+        <button
+          id="copyJsonBtn"
+          title="Copy JSON"
+          style="
+            background: #ffc107;
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 16px;
+            height: 40px;
+            align-self: flex-start;
+          "
+        >
+          📋
+        </button>
+      </div>
+    </div>
+
     <script src="/app.js"></script>
   </body>
 </html>
