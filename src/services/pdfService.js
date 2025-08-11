@@ -10,7 +10,6 @@ const __dirname = path.dirname(__filename);
 const PAGE_WIDTH = 842;
 const MIN_PAGE_HEIGHT = 595;
 const MARGIN = 50;
-const COLUMN_WIDTH = 140;
 const TEAM_BOX_HEIGHT = 25;
 const BRACKET_PADDING = 15;
 const MATCH_HEIGHT = TEAM_BOX_HEIGHT * 2 + BRACKET_PADDING;
@@ -22,6 +21,10 @@ export async function createTournamentPDF(
   outputPath = null,
   customTitle = null
 ) {
+  const COLUMN_WIDTH = Math.min(
+  120,
+  (PAGE_WIDTH - MARGIN) / tournament.rounds
+);
   // Calculate dynamic page height
   const firstRoundMatchCount = tournament.bracket.filter(
     (m) => m.round === 1
@@ -29,10 +32,14 @@ export async function createTournamentPDF(
   const contentHeight = MARGIN * 2 + 60 + firstRoundMatchCount * MATCH_SPACING;
   const pageHeight = Math.max(contentHeight, MIN_PAGE_HEIGHT);
 
+
   // Create PDF and fonts
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([PAGE_WIDTH, pageHeight]);
   const { width, height } = page.getSize();
+    if (tournament.rounds > 6) {
+    page.setSize(PAGE_WIDTH + 200, page.getHeight());
+  }
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
@@ -125,7 +132,7 @@ function drawHeader(page, tournament, customTitle, height, font, boldFont) {
     font: boldFont,
   });
 
-  page.drawText(`Status: ${tournament.status.toUpperCase()}`, {
+  page.drawText(`Status: ${tournament?.status?.toUpperCase()}`, {
     x: MARGIN,
     y: height - MARGIN - 20,
     size: 10,

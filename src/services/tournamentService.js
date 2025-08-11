@@ -1,33 +1,86 @@
 export function createKnockoutFixture(participants) {
   if (!Array.isArray(participants) || participants.length < 2) {
-    throw new Error(
-      "At least 2 participants are required for a knockout tournament"
-    );
+    throw new Error("At least 2 participants are required");
   }
+
   const totalTeams = participants.length;
-  // Find the next power of 2 for the bracket size
   const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(totalTeams)));
-  const rounds = Math.ceil(Math.log2(totalTeams));
+  const rounds = Math.ceil(Math.log2(nextPowerOf2));
+
   const tournament = {
     id: generateTournamentId(),
-    name: "Knockout Tournament",
     rounds,
-    currentRound: 1,
     bracket: [],
-    status: "active",
-    createdAt: new Date().toISOString(),
-    participants: participants,
+    participants,
   };
-  const positions = calculatePositions(totalTeams, nextPowerOf2);
-  const matchParticipants = new Array(nextPowerOf2).fill(null);
-  positions.teams.forEach((pos, i) => {
-    matchParticipants[pos - 1] = participants[i];
-  });
-  positions.byes.forEach((pos) => {
-    matchParticipants[pos - 1] = { bye: true };
-  });
-  createFirstRoundMatches(tournament, matchParticipants);
-  createSubsequentRounds(tournament, rounds);
+
+  // Step 1: Assign positions to teams and BYEs (no BYE vs BYE)
+  const { teams, byes } = calculatePositions(totalTeams, nextPowerOf2);
+
+  // Step 2: Fill Round 1 matches (with BYEs)
+  const round1Matches = [];
+  for (let i = 0; i < nextPowerOf2; i += 2) {
+    const pos1 = i + 1;
+    const pos2 = i + 2;
+    const participant1 = byes.includes(pos1)
+      ? { bye: true }
+      : participants[teams.indexOf(pos1)];
+    const participant2 = byes.includes(pos2)
+      ? { bye: true }
+      : participants[teams.indexOf(pos2)];
+
+    round1Matches.push({
+      matchId: `R1M${i / 2 + 1}`,
+      round: 1,
+      participant1,
+      participant2,
+      winner: participant1.bye
+        ? participant2
+        : participant2.bye
+        ? participant1
+        : null,
+      status: participant1.bye || participant2.bye ? "completed" : "pending",
+      nextMatchId: `R2M${Math.floor(i / 4) + 1}`,
+    });
+  }
+  tournament.bracket = round1Matches;
+
+  // Step 3: Pre-fill Round 2 BYEs (if any)
+  const round2Matches = [];
+  const round1Winners = round1Matches.map((m) => m.winner);
+  for (let i = 0; i < round1Winners.length; i += 2) {
+    const winner1 = round1Winners[i];
+    const winner2 = round1Winners[i + 1];
+
+    round2Matches.push({
+      matchId: `R2M${i / 2 + 1}`,
+      round: 2,
+      participant1: winner1,
+      participant2: winner2,
+      winner: null,
+      status: "pending",
+      nextMatchId: rounds > 2 ? `R3M${Math.floor(i / 4) + 1}` : null,
+    });
+  }
+  tournament.bracket.push(...round2Matches);
+
+  // Step 4: Create empty structure for remaining rounds
+  for (let round = 3; round <= rounds; round++) {
+    const matchesInRound = Math.pow(2, rounds - round);
+    for (let match = 1; match <= matchesInRound; match++) {
+      tournament.bracket.push({
+        matchId: `R${round}M${match}`,
+        round,
+        participant1: null,
+        participant2: null,
+        winner: null,
+        status: "pending",
+        nextMatchId:
+          round < rounds ? `R${round + 1}M${Math.ceil(match / 2)}` : null,
+      });
+    }
+  }
+
   return tournament;
 }
 /**
@@ -122,34 +175,20 @@ function createSubsequentRounds(tournament, rounds) {
  */
 
 function calculatePositions(numTeams, bracketSize) {
-  const numberOfByes = bracketSize - numTeams;
-  if (numberOfByes === 0) {
-    return {
-      teams: Array.from({ length: numTeams }, (_, i) => i + 1),
-      byes: [],
-    };
+  const positions = Array.from({ length: bracketSize }, (_, i) => i + 1);
+  const byes = [];
+  
+  // Distribute BYEs in staggered positions
+  for (let i = 0; i < bracketSize - numTeams; i++) {
+    const pos = i * 2 + 1;
+    byes.push(pos > bracketSize ? pos - 1 : pos); // Prevent overflow
   }
-  let byePositions = [];
-  let n = bracketSize;
-  while (byePositions.length < numberOfByes) {
-    if (byePositions.length === 0) {
-      byePositions.push(n);
-    } else {
-      let sections = Math.pow(2, byePositions.length);
-      let sectionSize = n / sections;
-      for (let i = 1; i < sections; i += 2) {
-        if (byePositions.length < numberOfByes) {
-          byePositions.push(Math.floor(i * sectionSize));
-        }
-      }
-    }
-  }
-  byePositions = byePositions.sort((a, b) => b - a);
-  let availablePositions = Array.from(
-    { length: bracketSize },
-    (_, i) => i + 1
-  ).filter((pos) => !byePositions.includes(pos));
-  return { teams: availablePositions.slice(0, numTeams), byes: byePositions };
+
+  const teamPositions = positions.filter(pos => !byes.includes(pos));
+  return { 
+    teams: teamPositions.slice(0, numTeams), 
+    byes: byes.slice(0, bracketSize - numTeams) 
+  };
 }
 /**
  * Calculates the positions for teams and byes in the bracket.
