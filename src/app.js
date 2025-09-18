@@ -17,6 +17,10 @@ const __dirname = path.dirname(__filename);
 // Initialize Express app
 const app = express();
 
+// Body parsing middleware - place this first
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
 // Security middleware
 app.use(helmet());
 
@@ -32,10 +36,6 @@ app.use(
 
 // Logging middleware
 app.use(morgan("combined"));
-
-// Body parsing middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Static files (for serving generated PDFs, favicon, and app.js)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

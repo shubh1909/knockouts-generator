@@ -1,6 +1,4 @@
 import PDFParser from "pdf2json";
-
-import { createKnockoutFixture } from "../services/tournamentService.js";
 import { createTournamentPDF } from "../services/pdfService.js";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,50 +7,50 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class TournamentController {
-  // Create tournament and return PDF in one call
+  constructor() {
+    this.createTournamentWithPDF = this.createTournamentWithPDF.bind(this);
+    this.pdfToJson = this.pdfToJson.bind(this);
+  }
+
   async createTournamentWithPDF(req, res) {
+    if (!req || !req.body) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request body"
+      });
+    }
+    
     try {
       const {
         participants,
+        rounds = [],
         name,
         returnType = "download",
         pdfTitle,
       } = req.body;
 
-      if (
-        !participants ||
-        !Array.isArray(participants) ||
-        participants.length < 2
-      ) {
+      if (!participants || !Array.isArray(participants) || participants.length < 2) {
         return res.status(400).json({
           success: false,
           message: "At least 2 participants are required",
         });
       }
 
-      // Validate participants structure
-      const validParticipants = participants.map((participant, index) => {
-        if (typeof participant === "string") {
-          return { id: index + 1, name: participant };
-        } else if (participant.name) {
-          return { id: participant.id || index + 1, name: participant.name };
-        } else {
-          throw new Error("Invalid participant format");
-        }
-      });
+      const roundWinners = this.processRoundWinners(participants, rounds);
 
-      // Create tournament
-      const tournament = createKnockoutFixture(validParticipants);
-      if (name) {
-        tournament.name = name;
-      }
+      const tournament = {
+        id: Date.now().toString(),
+        name: name || "Tournament",
+        status: "in_progress", 
+        createdAt: new Date(),
+        participants: participants.filter(p => p && p.trim()),
+        roundWinners: roundWinners,
+        totalRounds: Math.ceil(Math.log2(participants.length))
+      };
 
-      // Generate PDF
       const pdfResult = await createTournamentPDF(tournament, null, pdfTitle);
 
-      // Return based on requested type
       if (returnType === "download") {
-        // Stream the PDF directly to the response
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
@@ -60,7 +58,6 @@ class TournamentController {
         );
         res.sendFile(path.resolve(pdfResult.filePath));
       } else if (returnType === "json") {
-        // Return JSON response with tournament data and PDF info
         res.status(201).json({
           success: true,
           message: "Tournament created and PDF generated successfully",
@@ -69,11 +66,10 @@ class TournamentController {
               id: tournament.id,
               name: tournament.name,
               status: tournament.status,
-              rounds: tournament.rounds,
-              currentRound: tournament.currentRound,
+              roundWinners: tournament.roundWinners,
+              totalRounds: tournament.totalRounds,
               participantCount: tournament.participants.length,
               createdAt: tournament.createdAt,
-              bracket: tournament.bracket,
             },
             pdf: {
               fileName: pdfResult.fileName,
@@ -83,7 +79,6 @@ class TournamentController {
           },
         });
       } else {
-        // Return PDF info for separate download
         res.status(201).json({
           success: true,
           message: "Tournament created and PDF generated successfully",
@@ -92,8 +87,8 @@ class TournamentController {
               id: tournament.id,
               name: tournament.name,
               status: tournament.status,
-              rounds: tournament.rounds,
-              currentRound: tournament.currentRound,
+              roundWinners: tournament.roundWinners,
+              totalRounds: tournament.totalRounds,
               participantCount: tournament.participants.length,
               createdAt: tournament.createdAt,
             },
@@ -112,43 +107,67 @@ class TournamentController {
     }
   }
 
-  // Quick PDF download without storing tournament
+  processRoundWinners(participants, rounds) {
+    const processedRounds = {};
+    
+    if (Array.isArray(participants) && participants.length > 0) {
+      processedRounds[1] = participants
+        .filter(team => team && team.trim())
+        .map(team => team.trim());
+    }
+    
+    if (Array.isArray(rounds)) {
+      for (let i = 0; i < rounds.length; i++) {
+        const roundNumber = i + 2; 
+        const roundTeams = rounds[i];
+        
+        if (Array.isArray(roundTeams)) {
+          processedRounds[roundNumber] = roundTeams
+            .filter(team => team && team.trim())
+            .map(team => team.trim());
+        } else {
+          processedRounds[roundNumber] = [];
+        }
+      }
+    }
+    
+    return processedRounds;
+  }
+
   async createAndDownloadPDF(req, res) {
     try {
       const { participants, name, pdfTitle } = req.body;
 
-      if (
-        !participants ||
-        !Array.isArray(participants) ||
-        participants.length < 2
-      ) {
+      if (!participants || !Array.isArray(participants) || participants.length < 2) {
         return res.status(400).json({
           success: false,
           message: "At least 2 participants are required",
         });
       }
 
-      // Validate participants structure
-      const validParticipants = participants.map((participant, index) => {
-        if (typeof participant === "string") {
-          return { id: index + 1, name: participant };
-        } else if (participant.name) {
-          return { id: participant.id || index + 1, name: participant.name };
-        } else {
-          throw new Error("Invalid participant format");
-        }
-      });
+      const validParticipants = participants
+        .filter(participant => participant && participant.trim())
+        .map(participant => {
+          if (typeof participant === "string") {
+            return participant.trim();
+          } else if (participant && participant.name) {
+            return participant.name.trim();
+          } else {
+            return null;
+          }
+        })
+        .filter(p => p);
 
-      // Create tournament (temporary, not stored)
-      const tournament = createKnockoutFixture(validParticipants);
-      if (name) {
-        tournament.name = name;
-      }
+      const tournament = {
+        id: Date.now().toString(),
+        name: name || "Tournament",
+        participants: validParticipants,
+        roundWinners: { 1: validParticipants },
+        totalRounds: Math.ceil(Math.log2(validParticipants.length))
+      };
 
-      // Generate PDF
       const pdfResult = await createTournamentPDF(tournament, null, pdfTitle);
 
-      // Stream the PDF directly to the response
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
@@ -165,19 +184,14 @@ class TournamentController {
 
   async pdfToJson(req, res) {
     try {
-      // Assuming file is uploaded via multer and available as req.file.path
       const pdfPath = req.file?.path;
       if (!pdfPath) {
-        console.error("No PDF file uploaded.");
-        return res
-          .status(400)
-          .json({ success: false, message: "No PDF file uploaded." });
+        return res.status(400).json({ success: false, message: "No PDF file uploaded." });
       }
 
       const pdfParser = new PDFParser();
 
       pdfParser.on("pdfParser_dataError", (errData) => {
-        console.error("PDF parsing error:", errData.parserError);
         return res.status(500).json({
           success: false,
           message: "PDF parsing error",
@@ -186,17 +200,13 @@ class TournamentController {
       });
 
       pdfParser.on("pdfParser_dataReady", (pdfData) => {
-        console.log("PDF parsed successfully.");
         try {
-          // Extract matches from pdfData
           const page = pdfData?.Pages?.[0];
           const texts = page?.Texts || [];
           const decode = (t) => decodeURIComponent(t);
-          // Find all match IDs and their positions
           const matchTexts = texts.filter((txt) =>
             txt.R[0].T.match(/^R\d+M\d+$/)
           );
-          // Find all team names (exclude match IDs and round headers)
           const teamTexts = texts.filter((txt) => {
             const t = txt.R[0].T;
             return (
@@ -205,13 +215,11 @@ class TournamentController {
             );
           });
           teamTexts.sort((a, b) => a.y - b.y);
-          // Group matches by round
           const rounds = {};
           for (let i = 0; i < matchTexts.length; i++) {
             const matchId = decode(matchTexts[i].R[0].T);
             const roundMatch = matchId.match(/^R(\d+)M(\d+)$/);
             const roundNum = roundMatch ? parseInt(roundMatch[1]) : 1;
-            // Find two closest teams above this matchId (by y position)
             const teams = teamTexts
               .filter((t) => t.y < matchTexts[i].y)
               .slice(-2)
@@ -221,7 +229,6 @@ class TournamentController {
           }
           return res.json({ success: true, rounds });
         } catch (parseErr) {
-          console.error("Error parsing PDF to JSON:", parseErr);
           return res.status(500).json({
             success: false,
             message: "Error parsing PDF to JSON",
@@ -233,7 +240,6 @@ class TournamentController {
       try {
         pdfParser.loadPDF(pdfPath);
       } catch (loadErr) {
-        console.error("Error loading PDF:", loadErr);
         return res.status(500).json({
           success: false,
           message: "Error loading PDF",
@@ -241,10 +247,7 @@ class TournamentController {
         });
       }
     } catch (err) {
-      console.error("Server error in pdfToJson:", err);
-      return res
-        .status(500)
-        .json({ success: false, message: "Server error", error: err.message });
+      return res.status(500).json({ success: false, message: "Server error", error: err.message });
     }
   }
 }

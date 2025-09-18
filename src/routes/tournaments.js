@@ -48,11 +48,4 @@ router.post(
   tournamentController.createTournamentWithPDF
 );
 
-// Quick PDF download (no storage)
-router.post(
-  "/quick-pdf",
-  validate(tournamentValidation.quickPDF),
-  tournamentController.createAndDownloadPDF
-);
-
 export default router;

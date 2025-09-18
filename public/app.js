@@ -1,24 +1,146 @@
 const API_BASE =
-  "https://knockouts-generator.onrender.com" || "https://localhost:3001";
+  // "https://knockouts-generator.onrender.com" || "https://localhost:3001";
+  "http://localhost:3001";
 
 document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("createTournamentBtn")
     .addEventListener("click", createTournamentWithPDF);
-  document.getElementById("quickPDFBtn").addEventListener("click", quickPDF);
   document
     .getElementById("pdfToJsonForm")
     .addEventListener("submit", handlePdfToJson);
   document
     .getElementById("copyJsonBtn")
     .addEventListener("click", copyJsonToClipboard);
+
+  const participantsTextarea = document.getElementById("participants");
+  participantsTextarea.addEventListener("input", handleParticipantsChange);
+
   checkHealth();
   setTimeout(() => {
     document.getElementById("response").textContent =
       "🚀 Welcome to Knockout Tournament API v2.0!\n\nThis simplified version focuses on the essential functionality:\n• Create tournament fixtures from participant lists\n• Generate and download PDF brackets\n• ES6 modules architecture\n• Streamlined endpoints\n\nTry creating a tournament above! ⬆️";
   }, 1000);
 });
-// Copy JSON to clipboard handler
+
+function handleParticipantsChange() {
+  const participantsText = document.getElementById("participants").value;
+  const participants = participantsText.split("\n").filter((p) => p.trim());
+
+  if (participants.length < 2) return;
+
+  const totalRounds = calculateRounds(participants.length);
+
+  const existingRounds = document.querySelectorAll(".round-input");
+  existingRounds.forEach((el) => {
+    el.remove();
+  });
+
+  const firstInputGroup = document.querySelector(".input-group");
+  const roundsContainer = firstInputGroup?.parentElement;
+  const responseElement = document.getElementById("response");
+
+  if (!roundsContainer || !responseElement) return;
+
+  let matchesInRound = Math.ceil(participants.length / 4);
+
+  for (let round = 2; round <= totalRounds; round++) {
+    const roundInput = createRoundInput(round, matchesInRound);
+    try {
+      roundsContainer.insertBefore(roundInput, responseElement);
+    } catch (error) {}
+    matchesInRound = Math.ceil(matchesInRound / 2);
+  }
+}
+
+function createRoundInput(roundNumber, matchCount) {
+  const roundContainer = document.createElement("div");
+  roundContainer.className = "input-group round-input";
+  roundContainer.id = `round-${roundNumber}-container`;
+
+  const label = document.createElement("label");
+  label.textContent = `Round ${roundNumber} Participants (${matchCount} matches):`;
+
+  const textarea = document.createElement("textarea");
+  textarea.id = `round-${roundNumber}-participants`;
+  textarea.rows = matchCount * 2;
+  textarea.placeholder = `Team A\nTeam B\nTeam C\nTeam D\n...`;
+
+  roundContainer.appendChild(label);
+  roundContainer.appendChild(textarea);
+
+  return roundContainer;
+}
+
+function calculateRounds(participantCount) {
+  return Math.ceil(Math.log2(participantCount));
+}
+
+async function createTournamentWithPDF() {
+  const name = document.getElementById("tournamentName").value;
+  const pdfTitle = document.getElementById("pdfTitle").value;
+  const participantsText = document.getElementById("participants").value;
+  const participants = participantsText.split("\n").filter((p) => p.trim());
+  const returnType = document.getElementById("returnType").value;
+
+  const rounds = [];
+  const totalRounds = calculateRounds(participants.length);
+  for (let roundNum = 2; roundNum <= totalRounds; roundNum++) {
+    const roundInput = document.getElementById(
+      `round-${roundNum}-participants`
+    );
+    const roundParticipants = roundInput.value
+      .split("\n")
+      .filter((p) => p.trim());
+    rounds.push(roundParticipants);
+  }
+
+  try {
+    const requestBody = {
+      name,
+      participants,
+      rounds,
+      returnType,
+    };
+    if (pdfTitle.trim()) {
+      requestBody.pdfTitle = pdfTitle.trim();
+    }
+
+    const response = await fetch(
+      `${API_BASE}/api/tournaments/create-with-pdf`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      }
+    );
+    if (returnType === "download" && response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tournament-${name || "bracket"}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      document.getElementById("response").textContent =
+        "✅ Tournament created and PDF downloaded successfully!";
+    } else {
+      const data = await response.json();
+      document.getElementById("response").textContent = response.ok
+        ? JSON.stringify(data, null, 2)
+        : `Error: ${data.message}`;
+    }
+  } catch (error) {
+    document.getElementById("response").textContent = `Error: ${error.message}`;
+  }
+}
+
 function copyJsonToClipboard() {
   const jsonText = document.getElementById("pdf-json-response").textContent;
   if (!jsonText) return;
@@ -37,7 +159,7 @@ function copyJsonToClipboard() {
       }, 1200);
     });
 }
-// PDF to JSON API call handler
+
 async function handlePdfToJson(e) {
   e.preventDefault();
   const fileInput = document.getElementById("pdfFile");
