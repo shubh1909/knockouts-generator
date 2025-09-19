@@ -6,15 +6,7 @@ const tournamentValidation = {
       name: Joi.string().min(3).max(100).optional(),
       pdfTitle: Joi.string().min(1).max(100).optional(),
       participants: Joi.array()
-        .items(
-          Joi.alternatives().try(
-            Joi.string().min(1).max(50),
-            Joi.object({
-              id: Joi.number().integer().positive().optional(),
-              name: Joi.string().min(1).max(50).required(),
-            })
-          )
-        )
+        .items(Joi.string().min(1).max(50))
         .min(2)
         .max(128)
         .required()
@@ -22,36 +14,46 @@ const tournamentValidation = {
           "array.min": "At least 2 participants are required",
           "array.max": "Maximum 128 participants allowed",
         }),
+      rounds: Joi.array()
+        .items(
+          Joi.array().items(Joi.string().min(1).max(50))
+        )
+        .optional()
+        .default([]),
       returnType: Joi.string()
         .valid("json", "download", "url")
         .optional()
         .default("download"),
-    }),
+    }).options({ stripUnknown: true }),
   },
 };
 
 export const validate = (schema) => (req, res, next) => {
-  const validationErrors = [];
-
-  if (schema.body) {
-    const { error } = schema.body.validate(req.body);
-    if (error) {
-      validationErrors.push({
-        field: "body",
-        message: error.details[0].message,
-      });
+  try {
+    if (schema.body) {
+      const { error } = schema.body.validate(req.body, { abortEarly: false });
+      if (error) {
+        console.log('Validation Error:', error);
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: error.details.map(detail => ({
+            field: detail.path.join('.'),
+            message: detail.message
+          }))
+        });
+      }
     }
-  }
 
-  if (validationErrors.length > 0) {
-    return res.status(400).json({
+    next();
+  } catch (err) {
+    console.error('Validation middleware error:', err);
+    return res.status(500).json({
       success: false,
-      message: "Validation failed",
-      errors: validationErrors,
+      message: "Internal validation error",
+      error: err.message
     });
   }
-
-  next();
 };
 
 export { tournamentValidation };

@@ -156,13 +156,13 @@ Leicester City</textarea
       </div>
 
       <div class="endpoint-section">
-        <h3>📄 Endpoint 1: Create Tournament + PDF</h3>
+        <h3>📄Endpoint 1: Create Tournament + PDF</h3>
         <p>
           <strong>POST</strong> <code>/api/tournaments/create-with-pdf</code>
         </p>
         <p>
-          Creates tournament fixture and returns PDF with different response
-          options.
+          Creates tournament fixture with manual round assignments and returns
+          PDF with different response options.
         </p>
 
         <div class="input-group">
@@ -177,17 +177,6 @@ Leicester City</textarea
         <button id="createTournamentBtn" class="success">
           🎯 Create Tournament + PDF
         </button>
-      </div>
-
-      <div class="endpoint-section">
-        <h3>⚡ Endpoint 2: Quick PDF</h3>
-        <p><strong>POST</strong> <code>/api/tournaments/quick-pdf</code></p>
-        <p>
-          Creates tournament fixture and immediately downloads PDF (no data
-          storage).
-        </p>
-
-        <button id="quickPDFBtn" class="success">⚡ Quick PDF Download</button>
       </div>
 
       <div id="response" class="response"></div>
@@ -245,7 +234,7 @@ Leicester City</textarea
       </div>
     </div> -->
     <div class="endpoint-section">
-      <h3>📤 Endpoint 3: PDF to JSON Converter</h3>
+      <h3>📤 Endpoint 2: PDF to JSON Converter</h3>
       <p><strong>POST</strong> <code>/api/tournaments/pdf-to-json</code></p>
       <p>
         Upload a tournament PDF and get the fixture data as JSON, grouped by
