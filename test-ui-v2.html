@@ -102,6 +102,43 @@
         border-left: 4px solid #17a2b8;
         margin: 15px 0;
       }
+      .csv-section {
+        background: #f8d7da;
+        padding: 15px;
+        border-radius: 4px;
+        border-left: 4px solid #dc3545;
+        margin: 15px 0;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 10px 0;
+      }
+      .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .btn-secondary:hover {
+        background-color: #5a6268;
+      }
+      .btn-warning {
+        background-color: #ffc107;
+        color: #333;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .btn-warning:hover {
+        background-color: #e0a800;
+      }
     </style>
   </head>
   <body>
@@ -138,6 +175,31 @@
       </div>
 
       <div class="input-group">
+        <label>Date:</label>
+        <input type="date" id="tournamentDate" value="" />
+      </div>
+
+      <div class="input-group">
+        <label>Country:</label>
+        <input
+          type="text"
+          id="tournamentCountry"
+          placeholder="Enter country"
+          value=""
+        />
+      </div>
+
+      <div class="input-group">
+        <label>Website Link:</label>
+        <input
+          type="url"
+          id="tournamentWebsite"
+          placeholder="https://example.com"
+          value=""
+        />
+      </div>
+
+      <div class="input-group">
         <label>Participants (one per line):</label>
         <textarea
           id="participants"
@@ -156,13 +218,13 @@ Leicester City</textarea
       </div>
 
       <div class="endpoint-section">
-        <h3>📄Endpoint 1: Create Tournament + PDF</h3>
+        <h3>📄Endpoint 1: Create Tournament + PDF/CSV</h3>
         <p>
           <strong>POST</strong> <code>/api/tournaments/create-with-pdf</code>
         </p>
         <p>
           Creates tournament fixture with manual round assignments and returns
-          PDF with different response options.
+          PDF, CSV, or JSON data based on response type selection.
         </p>
 
         <div class="input-group">
@@ -170,123 +232,76 @@ Leicester City</textarea
           <select id="returnType">
             <option value="json">JSON Response (with tournament data)</option>
             <option value="download" selected>Direct PDF Download</option>
+            <option value="csv">Direct CSV Download</option>
             <option value="url">URL Response (for later download)</option>
           </select>
         </div>
 
         <button id="createTournamentBtn" class="success">
-          🎯 Create Tournament + PDF
+          🎯 Create Tournament + Get File
         </button>
       </div>
 
       <div id="response" class="response"></div>
     </div>
 
-    <!-- <div class="container">
+    <div class="container">
       <h2>📤 PDF to JSON (Parse Tournament PDF)</h2>
-      <form id="pdfToJsonForm">
-        <div class="input-group">
-          <label for="pdfFile">Upload Tournament PDF:</label>
-          <input
-            type="file"
-            id="pdfFile"
-            name="pdfFile"
-            accept="application/pdf"
-            required
-          />
+      <div class="endpoint-section">
+        <h3>📤 Endpoint 2: PDF to JSON Converter</h3>
+        <p><strong>POST</strong> <code>/api/tournaments/pdf-to-json</code></p>
+        <p>
+          Upload a tournament PDF and get the fixture data as JSON, grouped by
+          round.
+        </p>
+        <form id="pdfToJsonForm" style="margin-bottom: 10px">
+          <div class="input-group">
+            <label for="pdfFile">Upload Tournament PDF:</label>
+            <input
+              type="file"
+              id="pdfFile"
+              name="pdfFile"
+              accept="application/pdf"
+              required
+            />
+          </div>
+          <button type="submit" class="success">Parse PDF to JSON</button>
+        </form>
+        <div style="display: flex; align-items: flex-start; gap: 8px">
+          <pre
+            id="pdf-json-response"
+            class="response"
+            style="
+              flex: 1;
+              margin: 0;
+              background: #f8f9fa;
+              border: 1px solid #dee2e6;
+              border-radius: 4px;
+              padding: 15px;
+              font-family: monospace;
+              font-size: 13px;
+              max-height: 400px;
+              overflow-y: auto;
+            "
+          ></pre>
+          <button
+            id="copyJsonBtn"
+            title="Copy JSON"
+            style="
+              background: #ffc107;
+              color: #333;
+              border: none;
+              border-radius: 4px;
+              padding: 6px 10px;
+              cursor: pointer;
+              font-size: 16px;
+              height: 40px;
+              align-self: flex-start;
+            "
+          >
+            📋
+          </button>
         </div>
-        <button type="submit" class="success">Parse PDF to JSON</button>
-      </form>
-      <div style="display: flex; align-items: flex-start; gap: 8px">
-        <pre
-          id="pdf-json-response"
-          class="response"
-          style="
-            flex: 1;
-            margin: 0;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            font-family: monospace;
-            font-size: 13px;
-            max-height: 400px;
-            overflow-y: auto;
-          "
-        ></pre>
-        <button
-          id="copyJsonBtn"
-          title="Copy JSON"
-          style="
-            background: #ffc107;
-            color: #333;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 16px;
-            height: 40px;
-            align-self: flex-start;
-          "
-        >
-          📋
-        </button>
-      </div>
-    </div> -->
-    <div class="endpoint-section">
-      <h3>📤 Endpoint 2: PDF to JSON Converter</h3>
-      <p><strong>POST</strong> <code>/api/tournaments/pdf-to-json</code></p>
-      <p>
-        Upload a tournament PDF and get the fixture data as JSON, grouped by
-        round.
-      </p>
-      <form id="pdfToJsonForm" style="margin-bottom: 10px">
-        <div class="input-group">
-          <label for="pdfFile">Upload Tournament PDF:</label>
-          <input
-            type="file"
-            id="pdfFile"
-            name="pdfFile"
-            accept="application/pdf"
-            required
-          />
-        </div>
-        <button type="submit" class="success">Parse PDF to JSON</button>
-      </form>
-      <div style="display: flex; align-items: flex-start; gap: 8px">
-        <pre
-          id="pdf-json-response"
-          class="response"
-          style="
-            flex: 1;
-            margin: 0;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            font-family: monospace;
-            font-size: 13px;
-            max-height: 400px;
-            overflow-y: auto;
-          "
-        ></pre>
-        <button
-          id="copyJsonBtn"
-          title="Copy JSON"
-          style="
-            background: #ffc107;
-            color: #333;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 16px;
-            height: 40px;
-            align-self: flex-start;
-          "
-        >
-          📋
-        </button>
       </div>
     </div>
 

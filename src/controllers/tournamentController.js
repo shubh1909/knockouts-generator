@@ -1,5 +1,6 @@
 import PDFParser from "pdf2json";
 import { createTournamentPDF } from "../services/pdfService.js";
+import CSVService from "../services/csvService.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -16,20 +17,39 @@ class TournamentController {
     if (!req || !req.body) {
       return res.status(400).json({
         success: false,
-        message: "Invalid request body"
+        message: "Invalid request body",
       });
     }
-    
+
     try {
+      console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
+
       const {
         participants,
         rounds = [],
         name,
         returnType = "download",
         pdfTitle,
+        date,
+        country,
+        website,
       } = req.body;
 
-      if (!participants || !Array.isArray(participants) || participants.length < 2) {
+      console.log("🔍 Parsed values:", {
+        participants,
+        rounds,
+        name,
+        returnType,
+        date,
+        country,
+        website,
+      });
+
+      if (
+        !participants ||
+        !Array.isArray(participants) ||
+        participants.length < 2
+      ) {
         return res.status(400).json({
           success: false,
           message: "At least 2 participants are required",
@@ -41,11 +61,14 @@ class TournamentController {
       const tournament = {
         id: Date.now().toString(),
         name: name || "Tournament",
-        status: "in_progress", 
+        status: "in_progress",
         createdAt: new Date(),
-        participants: participants.filter(p => p && p.trim()),
+        participants: participants.filter((p) => p && p.trim()),
         roundWinners: roundWinners,
-        totalRounds: Math.ceil(Math.log2(participants.length))
+        totalRounds: Math.ceil(Math.log2(participants.length)),
+        date,
+        country,
+        website,
       };
 
       const pdfResult = await createTournamentPDF(tournament, null, pdfTitle);
@@ -78,6 +101,34 @@ class TournamentController {
             },
           },
         });
+      } else if (returnType === "csv") {
+        // Convert tournament data to CSV and download
+        try {
+          const csvContent = CSVService.convertTournamentToCSV(tournament);
+          const csvFilename = CSVService.validateFilename(
+            `${tournament.name || "tournament"}-${Date.now()}.csv`
+          );
+
+          // Set headers for CSV download
+          res.setHeader("Content-Type", "text/csv; charset=utf-8");
+          res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${csvFilename}"`
+          );
+
+          console.log("✅ Tournament created and CSV generated successfully");
+
+          // Send CSV content directly with BOM for Excel compatibility
+          const BOM = "\uFEFF";
+          return res.status(201).send(BOM + csvContent);
+        } catch (csvError) {
+          console.error("❌ Error generating CSV:", csvError.message);
+          return res.status(500).json({
+            success: false,
+            message: "Tournament created but CSV generation failed",
+            error: csvError.message,
+          });
+        }
       } else {
         res.status(201).json({
           success: true,
@@ -109,28 +160,28 @@ class TournamentController {
 
   processRoundWinners(participants, rounds) {
     const processedRounds = {};
-    
+
     if (Array.isArray(participants) && participants.length > 0) {
       processedRounds[1] = participants
-        .filter(team => team && team.trim())
-        .map(team => team.trim());
+        .filter((team) => team && team.trim())
+        .map((team) => team.trim());
     }
-    
+
     if (Array.isArray(rounds)) {
       for (let i = 0; i < rounds.length; i++) {
-        const roundNumber = i + 2; 
+        const roundNumber = i + 2;
         const roundTeams = rounds[i];
-        
+
         if (Array.isArray(roundTeams)) {
           processedRounds[roundNumber] = roundTeams
-            .filter(team => team && team.trim())
-            .map(team => team.trim());
+            .filter((team) => team && team.trim())
+            .map((team) => team.trim());
         } else {
           processedRounds[roundNumber] = [];
         }
       }
     }
-    
+
     return processedRounds;
   }
 
@@ -138,7 +189,11 @@ class TournamentController {
     try {
       const { participants, name, pdfTitle } = req.body;
 
-      if (!participants || !Array.isArray(participants) || participants.length < 2) {
+      if (
+        !participants ||
+        !Array.isArray(participants) ||
+        participants.length < 2
+      ) {
         return res.status(400).json({
           success: false,
           message: "At least 2 participants are required",
@@ -146,8 +201,8 @@ class TournamentController {
       }
 
       const validParticipants = participants
-        .filter(participant => participant && participant.trim())
-        .map(participant => {
+        .filter((participant) => participant && participant.trim())
+        .map((participant) => {
           if (typeof participant === "string") {
             return participant.trim();
           } else if (participant && participant.name) {
@@ -156,14 +211,14 @@ class TournamentController {
             return null;
           }
         })
-        .filter(p => p);
+        .filter((p) => p);
 
       const tournament = {
         id: Date.now().toString(),
         name: name || "Tournament",
         participants: validParticipants,
         roundWinners: { 1: validParticipants },
-        totalRounds: Math.ceil(Math.log2(validParticipants.length))
+        totalRounds: Math.ceil(Math.log2(validParticipants.length)),
       };
 
       const pdfResult = await createTournamentPDF(tournament, null, pdfTitle);
@@ -186,7 +241,9 @@ class TournamentController {
     try {
       const pdfPath = req.file?.path;
       if (!pdfPath) {
-        return res.status(400).json({ success: false, message: "No PDF file uploaded." });
+        return res
+          .status(400)
+          .json({ success: false, message: "No PDF file uploaded." });
       }
 
       const pdfParser = new PDFParser();
@@ -247,7 +304,9 @@ class TournamentController {
         });
       }
     } catch (err) {
-      return res.status(500).json({ success: false, message: "Server error", error: err.message });
+      return res
+        .status(500)
+        .json({ success: false, message: "Server error", error: err.message });
     }
   }
 }
