@@ -1,6 +1,5 @@
 const API_BASE =
-  // "https://knockouts-generator.onrender.com" || "https://localhost:3001";
-  "http://localhost:3001";
+  "https://knockouts-generator.onrender.com" || "https://localhost:3001";
 
 // Store last tournament and PDF data for CSV export
 let lastTournamentData = null;
