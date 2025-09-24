@@ -727,12 +727,7 @@ function drawTeamBox(page, { x, y, teamName, font }) {
     color: COLORS.WHITE,
   });
 
-  if (
-    teamName &&
-    teamName !== "BYE" &&
-    teamName !== null &&
-    teamName !== undefined
-  ) {
+  if (teamName && teamName !== null && teamName !== undefined) {
     let displayName = typeof teamName === "string" ? teamName.trim() : "";
 
     if (

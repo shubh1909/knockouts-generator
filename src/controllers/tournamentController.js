@@ -163,7 +163,7 @@ class TournamentController {
 
     if (Array.isArray(participants) && participants.length > 0) {
       processedRounds[1] = participants
-        .filter((team) => team && team.trim())
+        .filter((team) => team && (team.trim() || team.trim().toUpperCase() === "BYE"))
         .map((team) => team.trim());
     }
 
@@ -174,7 +174,7 @@ class TournamentController {
 
         if (Array.isArray(roundTeams)) {
           processedRounds[roundNumber] = roundTeams
-            .filter((team) => team && team.trim())
+            .filter((team) => team && (team.trim() || team.trim().toUpperCase() === "BYE"))
             .map((team) => team.trim());
         } else {
           processedRounds[roundNumber] = [];
