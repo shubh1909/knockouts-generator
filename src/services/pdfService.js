@@ -16,7 +16,7 @@ const SPACING = {
 };
 const FONT = {
   SIZES: { TITLE: 16, ROUND_LABEL: 10, TEAM_NAME: 8 },
-  MAX_TEAM_NAME_LENGTH: 14,
+  MAX_TEAM_NAME_LENGTH: 22,
 };
 const COLORS = {
   BLACK: rgb(0, 0, 0),
@@ -41,6 +41,9 @@ export async function createTournamentPDF(
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+  // Extract additional tournament info
+  const { date, country, website } = tournament;
+
   if (totalParticipants <= SPACING.MAX_TEAMS_SINGLE_PAGE) {
     const bracket = createBracketStructure(
       participants,
@@ -51,7 +54,8 @@ export async function createTournamentPDF(
       bracket,
       tournament.name || customTitle,
       font,
-      boldFont
+      boldFont,
+      { date, country, website }
     );
   } else {
     await createMultiPageBracketWithCapacityDistribution(
@@ -60,7 +64,8 @@ export async function createTournamentPDF(
       tournament.name || customTitle,
       font,
       boldFont,
-      tournament.roundWinners || {}
+      tournament.roundWinners || {},
+      { date, country, website }
     );
   }
 
@@ -109,7 +114,8 @@ async function createMultiPageBracketWithCapacityDistribution(
   customTitle,
   font,
   boldFont,
-  roundWinners
+  roundWinners,
+  additionalInfo = {}
 ) {
   const teamsPerDivision = SPACING.TEAMS_PER_DIVISION;
   const totalDivisions = Math.ceil(participants.length / teamsPerDivision);
@@ -166,7 +172,8 @@ async function createMultiPageBracketWithCapacityDistribution(
       divisionBracket,
       customTitle,
       font,
-      boldFont
+      boldFont,
+      additionalInfo
     );
   }
 
@@ -177,7 +184,8 @@ async function createMultiPageBracketWithCapacityDistribution(
       customTitle,
       font,
       boldFont,
-      divisionRounds
+      divisionRounds,
+      additionalInfo
     );
   }
 }
@@ -188,7 +196,8 @@ async function createDivisionPageWithDistribution(
   bracket,
   customTitle,
   font,
-  boldFont
+  boldFont,
+  additionalInfo = {}
 ) {
   const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
   const title = `${customTitle || "Tournament"} - ${division.name}`;
@@ -199,6 +208,14 @@ async function createDivisionPageWithDistribution(
     size: FONT.SIZES.TITLE,
     font: boldFont,
   });
+
+  // Add tournament info row (date, country, website) below title
+  drawTournamentInfo(
+    page,
+    additionalInfo,
+    font,
+    PAGE.HEIGHT - PAGE.MARGIN - 45
+  );
 
   const availableWidth = PAGE.WIDTH - PAGE.MARGIN * 2;
   const roundSpacing = Math.floor(availableWidth / bracket.totalRounds);
@@ -220,7 +237,7 @@ async function createDivisionPageWithDistribution(
       round,
       roundIndex,
       x: currentX,
-      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 30,
+      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 50, // Adjusted for tournament info
       verticalSpacing,
       font,
       boldFont,
@@ -242,7 +259,8 @@ async function createChampionshipPageWithCorrectRounds(
   customTitle,
   font,
   boldFont,
-  divisionRounds
+  divisionRounds,
+  additionalInfo = {}
 ) {
   const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
   const title = `${customTitle || "Tournament"} - Championship Rounds`;
@@ -253,6 +271,14 @@ async function createChampionshipPageWithCorrectRounds(
     size: FONT.SIZES.TITLE,
     font: boldFont,
   });
+
+  // Add tournament info row (date, country, website) below title
+  drawTournamentInfo(
+    page,
+    additionalInfo,
+    font,
+    PAGE.HEIGHT - PAGE.MARGIN - 45
+  );
 
   const emptyParticipants = Array(divisions.length).fill(null);
   const championshipBracket = createChampionshipBracketStructure(
@@ -281,7 +307,7 @@ async function createChampionshipPageWithCorrectRounds(
       round,
       roundIndex,
       x: currentX,
-      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 60,
+      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 80, // Adjusted for tournament info
       verticalSpacing,
       font,
       boldFont,
@@ -370,7 +396,8 @@ async function createSinglePageBracket(
   bracket,
   customTitle,
   font,
-  boldFont
+  boldFont,
+  additionalInfo = {}
 ) {
   const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
   const title = customTitle || "Tournament Bracket";
@@ -381,6 +408,14 @@ async function createSinglePageBracket(
     size: FONT.SIZES.TITLE,
     font: boldFont,
   });
+
+  // Add tournament info row (date, country, website) below title
+  drawTournamentInfo(
+    page,
+    additionalInfo,
+    font,
+    PAGE.HEIGHT - PAGE.MARGIN - 45
+  );
 
   const availableWidth = PAGE.WIDTH - PAGE.MARGIN * 2;
   const roundSpacing = Math.floor(availableWidth / bracket.totalRounds);
@@ -402,7 +437,7 @@ async function createSinglePageBracket(
       round,
       roundIndex,
       x: currentX,
-      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 30,
+      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 50, // Adjusted for tournament info
       verticalSpacing,
       font,
       boldFont,
@@ -719,8 +754,34 @@ function drawTeamBox(page, { x, y, teamName, font }) {
       });
     }
   }
-
   return { x, y, width: BOX.WIDTH, height: BOX.HEIGHT };
+}
+
+function drawTournamentInfo(page, additionalInfo, font, yPosition) {
+  const { date, country, website } = additionalInfo;
+  const infoItems = [];
+
+  if (date) {
+    infoItems.push(`Date: ${date}`);
+  }
+  if (country) {
+    infoItems.push(`Country: ${country}`);
+  }
+  if (website) {
+    infoItems.push(`Website: ${website}`);
+  }
+
+  if (infoItems.length > 0) {
+    const infoText = infoItems.join(" | ");
+    const textWidth = font.widthOfTextAtSize(infoText, 10);
+    page.drawText(infoText, {
+      x: (PAGE.WIDTH - textWidth) / 2,
+      y: yPosition,
+      size: 10,
+      font: font,
+      color: COLORS.BLACK,
+    });
+  }
 }
 
 function drawBracketConnections(page, fromBoxes, toBoxes) {

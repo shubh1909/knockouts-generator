@@ -22,7 +22,21 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'", "https:", "data:"],
+        connectSrc: ["'self'"],
+      },
+    },
+  })
+);
 
 // Enable CORS
 app.use(
@@ -65,6 +79,12 @@ app.get("/api", (req, res) => {
           "Create tournament and get PDF in one call",
         "POST /api/tournaments/quick-pdf":
           "Create fixture and download PDF immediately",
+        "POST /api/tournaments/pdf-to-json":
+          "Parse tournament PDF and extract match data as JSON",
+        "POST /api/tournaments/json-to-csv":
+          "Convert tournament JSON data to CSV format",
+        "POST /api/tournaments/pdf-data-to-csv":
+          "Convert parsed PDF match data to CSV format",
       },
     },
     examples: {
@@ -82,7 +102,7 @@ app.get("/api", (req, res) => {
           returnType: "download",
         },
         description:
-          "Creates tournament and returns PDF. Options: 'download' (default), 'json', 'url'",
+          "Creates tournament and returns PDF. Options: 'download' (default), 'json', 'csv', 'url'",
       },
       quickPDF: {
         method: "POST",
@@ -98,9 +118,13 @@ app.get("/api", (req, res) => {
     features: [
       "✅ Create tournament fixtures from participant arrays",
       "✅ Generate PDF brackets automatically",
+      "✅ Parse tournament PDFs to extract match data",
+      "✅ Export tournament data to CSV format",
+      "✅ Excel and Google Sheets compatible CSV export",
       "✅ Download PDFs immediately",
       "✅ Support for 2-128 participants",
       "✅ Automatic bye handling",
+      "✅ Tournament metadata (date, country, website)",
       "✅ ES6 modules",
       "✅ Input validation",
       "✅ Error handling",
