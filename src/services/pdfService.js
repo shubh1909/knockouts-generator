@@ -41,33 +41,20 @@ export async function createTournamentPDF(
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // Extract additional tournament info
-  const { date, country, website } = tournament;
+  const { date, country, website, winner } = tournament;
 
-  if (totalParticipants <= SPACING.MAX_TEAMS_SINGLE_PAGE) {
-    const bracket = createBracketStructure(
-      participants,
-      tournament.roundWinners || {}
-    );
-    await createSinglePageBracket(
-      pdfDoc,
-      bracket,
-      tournament.name || customTitle,
-      font,
-      boldFont,
-      { date, country, website }
-    );
-  } else {
-    await createMultiPageBracketWithCapacityDistribution(
-      pdfDoc,
-      participants,
-      tournament.name || customTitle,
-      font,
-      boldFont,
-      tournament.roundWinners || {},
-      { date, country, website }
-    );
-  }
+  const bracket = createBracketStructure(
+    participants,
+    tournament.roundWinners || {}
+  );
+  await createAutoWrappedFixturePage(
+    pdfDoc,
+    bracket,
+    tournament.name || customTitle,
+    font,
+    boldFont,
+    { date, country, website, winner }
+  );
 
   outputPath =
     outputPath ||
@@ -82,259 +69,218 @@ export async function createTournamentPDF(
   };
 }
 
-function distributeRoundWinnersByCapacity(roundTeams, divisions) {
-  if (!Array.isArray(roundTeams) || roundTeams.length === 0) {
-    return divisions.map(() => []);
-  }
-
-  const distributedTeams = [];
-  let teamIndex = 0;
-
-  for (let divIndex = 0; divIndex < divisions.length; divIndex++) {
-    const division = divisions[divIndex];
-    const divisionCapacity = Math.ceil(division.teams.length / 2);
-    const divisionTeams = [];
-    for (
-      let i = 0;
-      i < divisionCapacity && teamIndex < roundTeams.length;
-      i++
-    ) {
-      divisionTeams.push(roundTeams[teamIndex]);
-      teamIndex++;
-    }
-    distributedTeams.push(divisionTeams);
-  }
-
-  return distributedTeams;
-}
-
-async function createMultiPageBracketWithCapacityDistribution(
+async function createAutoWrappedFixturePage(
   pdfDoc,
-  participants,
-  customTitle,
-  font,
-  boldFont,
-  roundWinners,
-  additionalInfo = {}
-) {
-  const teamsPerDivision = SPACING.TEAMS_PER_DIVISION;
-  const totalDivisions = Math.ceil(participants.length / teamsPerDivision);
-
-  const divisions = [];
-  for (let divIndex = 0; divIndex < totalDivisions; divIndex++) {
-    const startIndex = divIndex * teamsPerDivision;
-    const endIndex = Math.min(
-      startIndex + teamsPerDivision,
-      participants.length
-    );
-    const divisionTeams = participants.slice(startIndex, endIndex);
-
-    divisions.push({
-      index: divIndex,
-      name: `Division ${String.fromCharCode(65 + divIndex)}`,
-      teams: divisionTeams,
-    });
-  }
-
-  const distributedRoundWinners = {};
-  Object.keys(roundWinners).forEach((roundNum) => {
-    const roundTeams = roundWinners[roundNum];
-    if (Array.isArray(roundTeams) && roundTeams.length > 0) {
-      distributedRoundWinners[roundNum] = distributeRoundWinnersByCapacity(
-        roundTeams,
-        divisions
-      );
-    }
-  });
-
-  const divisionRounds = Math.ceil(Math.log2(SPACING.TEAMS_PER_DIVISION));
-
-  for (let divIndex = 0; divIndex < divisions.length; divIndex++) {
-    const division = divisions[divIndex];
-    const divisionRoundWinners = { 1: division.teams };
-
-    Object.keys(distributedRoundWinners).forEach((roundNum) => {
-      if (distributedRoundWinners[roundNum][divIndex]) {
-        divisionRoundWinners[roundNum] =
-          distributedRoundWinners[roundNum][divIndex];
-      }
-    });
-
-    const divisionBracket = createBracketStructureWithMinRounds(
-      division.teams,
-      divisionRoundWinners,
-      divisionRounds
-    );
-
-    await createDivisionPageWithDistribution(
-      pdfDoc,
-      division,
-      divisionBracket,
-      customTitle,
-      font,
-      boldFont,
-      additionalInfo
-    );
-  }
-
-  if (totalDivisions > 1) {
-    await createChampionshipPageWithCorrectRounds(
-      pdfDoc,
-      divisions,
-      customTitle,
-      font,
-      boldFont,
-      divisionRounds,
-      additionalInfo
-    );
-  }
-}
-
-async function createDivisionPageWithDistribution(
-  pdfDoc,
-  division,
   bracket,
   customTitle,
   font,
   boldFont,
   additionalInfo = {}
 ) {
-  const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
-  const title = `${customTitle || "Tournament"} - ${division.name}`;
+  const marginBetweenColumns = 40;
+  const columnWidth = BOX.WIDTH + marginBetweenColumns;
+  const availableWidth = PAGE.WIDTH - PAGE.MARGIN * 2;
+  const roundsTotal = bracket.totalRounds || bracket.rounds.length || 0;
+
+  if (roundsTotal === 0) {
+    const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+    page.drawText("No rounds to render", {
+      x: PAGE.MARGIN,
+      y: PAGE.HEIGHT - PAGE.MARGIN - 20,
+      size: 12,
+      font,
+    });
+    return;
+  }
+
+  const columnsPerRow = Math.max(1, Math.floor(availableWidth / columnWidth));
+  const rowsNeeded = Math.ceil(roundsTotal / columnsPerRow);
+
+  const firstRoundMatches =
+    (bracket.rounds && bracket.rounds[0] && bracket.rounds[0].matchCount) || 1;
+  const verticalSpacing = Math.max(
+    20,
+    Math.min(
+      SPACING.VERTICAL_BASE,
+      (PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 2 * PAGE.MARGIN - 100) /
+        firstRoundMatches
+    )
+  );
+
+  // estimate row height: space needed to render the full vertical list of first round matches
+  const perMatchVertical = BOX.HEIGHT * 2 + verticalSpacing;
+  const rowContentHeight = firstRoundMatches * perMatchVertical + 120; // 120 for title / paddings per row
+  const dynamicPageHeight = Math.max(
+    PAGE.HEIGHT,
+    PAGE.HEADER_HEIGHT + PAGE.MARGIN * 2 + rowsNeeded * rowContentHeight
+  );
+
+  // Create one tall page
+  const page = pdfDoc.addPage([PAGE.WIDTH, dynamicPageHeight]);
+
+  // Render title at top centered
+  const title = customTitle || "Tournament Bracket";
   const titleWidth = boldFont.widthOfTextAtSize(title, FONT.SIZES.TITLE);
   page.drawText(title, {
     x: (PAGE.WIDTH - titleWidth) / 2,
-    y: PAGE.HEIGHT - PAGE.MARGIN - 25,
+    y: dynamicPageHeight - PAGE.MARGIN - 25,
     size: FONT.SIZES.TITLE,
     font: boldFont,
   });
 
-  // Add tournament info row (date, country, website) below title
+  // tournament info row below title
   drawTournamentInfo(
     page,
     additionalInfo,
     font,
-    PAGE.HEIGHT - PAGE.MARGIN - 45
+    dynamicPageHeight - PAGE.MARGIN - 45
   );
 
-  const availableWidth = PAGE.WIDTH - PAGE.MARGIN * 2;
-  const roundSpacing = Math.floor(availableWidth / bracket.totalRounds);
-  const availableHeight = PAGE.HEIGHT - PAGE.HEADER_HEIGHT - PAGE.MARGIN * 2;
-  const firstRoundMatches = bracket.rounds[0].matchCount;
-  const verticalSpacing = Math.max(
-    20,
-    Math.min(SPACING.VERTICAL_BASE, (availableHeight - 100) / firstRoundMatches)
-  );
+  // For each round, compute its row and column and draw
+  for (let roundIndex = 0; roundIndex < bracket.rounds.length; roundIndex++) {
+    const round = bracket.rounds[roundIndex];
 
-  const allRoundBoxes = [];
-  let currentX = PAGE.MARGIN;
+    const row = Math.floor(roundIndex / columnsPerRow);
+    const colInRow = roundIndex % columnsPerRow;
+
+    const x = PAGE.MARGIN + colInRow * columnWidth;
+
+    // startY per row: push down with row offset
+    const startY =
+      dynamicPageHeight -
+      PAGE.HEADER_HEIGHT -
+      PAGE.MARGIN -
+      row * rowContentHeight -
+      40;
+
+    // For connections across rows it's complicated (because connections usually go within same row).
+    // We'll only draw connections between rounds that sit in the same row adjacent columns.
+    // For rounds that go to next row (wrap), connections are omitted because visual continuity breaks across rows.
+    // This matches requirement: keep layout organized and consistent.
+    const previousBoxes =
+      roundIndex > 0 && Math.floor((roundIndex - 1) / columnsPerRow) === row
+        ? undefined // will be set below per-row using collected array
+        : null;
+
+    // We'll draw round and collect boxes for that row to enable connections with the previous column in same row.
+    // To support connections, we need to maintain per-row arrays.
+  }
+
+  // We'll perform a second pass that maintains per-row `allRoundBoxes` so connections are drawn only within same row.
+  const rowsAllRoundBoxes = Array.from({ length: rowsNeeded }, () => []);
+  let lastRoundBoxes = null;
 
   for (let roundIndex = 0; roundIndex < bracket.rounds.length; roundIndex++) {
     const round = bracket.rounds[roundIndex];
-    const previousBoxes = roundIndex > 0 ? allRoundBoxes[roundIndex - 1] : null;
+
+    const row = Math.floor(roundIndex / columnsPerRow);
+    const colInRow = roundIndex % columnsPerRow;
+
+    const x = PAGE.MARGIN + colInRow * columnWidth;
+    const startY =
+      dynamicPageHeight -
+      PAGE.HEADER_HEIGHT -
+      PAGE.MARGIN -
+      row * rowContentHeight -
+      40;
+
+    const prevBoxesForThisRow =
+      colInRow > 0 ? rowsAllRoundBoxes[row][colInRow - 1] : null;
 
     const roundBoxes = drawBracketRound(page, {
       round,
       roundIndex,
-      x: currentX,
-      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 50, // Adjusted for tournament info
+      x,
+      startY,
       verticalSpacing,
       font,
       boldFont,
-      previousBoxes,
-      divisionName: division.name,
+      previousBoxes: prevBoxesForThisRow,
+      divisionName: "Single",
     });
 
-    allRoundBoxes.push(roundBoxes);
-    if (previousBoxes && roundBoxes) {
-      drawBracketConnections(page, previousBoxes, roundBoxes);
+    rowsAllRoundBoxes[row].push(roundBoxes);
+
+    // draw connections to previous round in same row if possible
+    if (prevBoxesForThisRow && roundBoxes) {
+      drawBracketConnections(page, prevBoxesForThisRow, roundBoxes);
     }
-    currentX += roundSpacing;
+
+    lastRoundBoxes = roundBoxes;
   }
-}
 
-async function createChampionshipPageWithCorrectRounds(
-  pdfDoc,
-  divisions,
-  customTitle,
-  font,
-  boldFont,
-  divisionRounds,
-  additionalInfo = {}
-) {
-  const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
-  const title = `${customTitle || "Tournament"} - Championship Rounds`;
-  const titleWidth = boldFont.widthOfTextAtSize(title, FONT.SIZES.TITLE);
-  page.drawText(title, {
-    x: (PAGE.WIDTH - titleWidth) / 2,
-    y: PAGE.HEIGHT - PAGE.MARGIN - 25,
-    size: FONT.SIZES.TITLE,
-    font: boldFont,
-  });
+  if (additionalInfo?.winner && lastRoundBoxes?.length) {
+    const finalBox = lastRoundBoxes[0]; // winner should be in the first/only box of final round
+    const winnerText = `Winner: ${additionalInfo.winner}`;
+    const fontSize = 14;
+    const textWidth = boldFont.widthOfTextAtSize(winnerText, fontSize);
 
-  // Add tournament info row (date, country, website) below title
-  drawTournamentInfo(
-    page,
-    additionalInfo,
-    font,
-    PAGE.HEIGHT - PAGE.MARGIN - 45
-  );
-
-  const emptyParticipants = Array(divisions.length).fill(null);
-  const championshipBracket = createChampionshipBracketStructure(
-    emptyParticipants,
-    divisionRounds
-  );
-
-  const availableWidth = PAGE.WIDTH - PAGE.MARGIN * 2;
-  const roundSpacing = Math.floor(
-    availableWidth / championshipBracket.totalRounds
-  );
-  const verticalSpacing = 60;
-
-  const allRoundBoxes = [];
-  let currentX = PAGE.MARGIN;
-
-  for (
-    let roundIndex = 0;
-    roundIndex < championshipBracket.rounds.length;
-    roundIndex++
-  ) {
-    const round = championshipBracket.rounds[roundIndex];
-    const previousBoxes = roundIndex > 0 ? allRoundBoxes[roundIndex - 1] : null;
-
-    const roundBoxes = drawBracketRound(page, {
-      round,
-      roundIndex,
-      x: currentX,
-      startY: PAGE.HEIGHT - PAGE.HEADER_HEIGHT - 80, // Adjusted for tournament info
-      verticalSpacing,
-      font,
-      boldFont,
-      previousBoxes,
-      divisionName: "Championship",
+    page.drawText(winnerText, {
+      x: finalBox.x + finalBox.width / 2 - textWidth / 2, // center aligned to final box
+      y: finalBox.y - 100, // 30px below the final match box
+      size: fontSize,
+      font: boldFont,
+      color: rgb(0, 0.5, 0),
     });
-
-    allRoundBoxes.push(roundBoxes);
-    if (previousBoxes && roundBoxes) {
-      drawBracketConnections(page, previousBoxes, roundBoxes);
-    }
-    currentX += roundSpacing;
   }
+
+  // Done with page
 }
 
-function createChampionshipBracketStructure(participants, startingRound) {
-  const totalParticipants = participants.length;
+/* ------------------------
+   Existing helper functions
+   (kept mostly as-is with no division logic)
+   ------------------------ */
+
+function createBracketStructure(participants, roundWinners = {}) {
+  const totalParticipants = Array.isArray(participants)
+    ? participants.length
+    : 0;
+  if (totalParticipants === 0) {
+    return { rounds: [], totalRounds: 0, totalParticipants: 0 };
+  }
+
   const totalRounds = Math.ceil(Math.log2(totalParticipants));
   const rounds = [];
 
   for (let round = 1; round <= totalRounds; round++) {
-    const actualRoundNumber = startingRound + round;
-    let matchCount = Math.ceil(Math.pow(2, totalRounds - round + 1) / 2);
+    let roundTeams = [];
+    let matchCount = 0;
+
+    if (round === 1) {
+      // First round should have all participants
+      roundTeams = [...participants];
+      // Add null for odd count
+      if (roundTeams.length % 2 !== 0) {
+        roundTeams.push(null);
+      }
+      matchCount = Math.ceil(roundTeams.length / 2);
+    } else if (
+      roundWinners[round] &&
+      Array.isArray(roundWinners[round]) &&
+      roundWinners[round].length > 0
+    ) {
+      // Use provided round winners
+      roundTeams = [...roundWinners[round]];
+      if (roundTeams.length % 2 !== 0) {
+        roundTeams.push(null);
+      }
+      matchCount = Math.ceil(roundTeams.length / 2);
+    } else {
+      // Calculate expected teams for empty rounds
+      const previousRoundCount =
+        round === 2
+          ? totalParticipants
+          : Math.ceil(totalParticipants / Math.pow(2, round - 2));
+      const expectedTeams = Math.ceil(previousRoundCount / 2);
+      matchCount = Math.max(1, Math.ceil(expectedTeams / 2));
+      roundTeams = [];
+    }
+
     rounds.push({
-      roundNumber: actualRoundNumber,
+      roundNumber: round,
       matchCount: matchCount,
-      teams: [],
+      teams: roundTeams,
     });
   }
 
@@ -363,6 +309,9 @@ function createBracketStructureWithMinRounds(
 
     if (round === 1) {
       roundTeams = [...participants];
+      if (roundTeams.length % 2 !== 0) {
+        roundTeams.push(null);
+      }
       matchCount = Math.ceil(roundTeams.length / 2);
     } else if (
       roundWinners[round] &&
@@ -370,10 +319,17 @@ function createBracketStructureWithMinRounds(
       roundWinners[round].length > 0
     ) {
       roundTeams = [...roundWinners[round]];
+      if (roundTeams.length % 2 !== 0) {
+        roundTeams.push(null);
+      }
       matchCount = Math.ceil(roundTeams.length / 2);
     } else {
-      matchCount = Math.ceil(totalParticipants / Math.pow(2, round));
-      if (matchCount < 1) matchCount = 1;
+      const previousRoundTeams =
+        round === 2
+          ? totalParticipants
+          : Math.ceil(totalParticipants / Math.pow(2, round - 2));
+      const expectedTeams = Math.ceil(previousRoundTeams / 2);
+      matchCount = Math.max(1, Math.ceil(expectedTeams / 2));
       roundTeams = [];
     }
 
@@ -387,10 +343,6 @@ function createBracketStructureWithMinRounds(
   return { rounds, totalRounds, totalParticipants };
 }
 
-function createBracketStructure(participants, roundWinners = {}) {
-  return createBracketStructureWithMinRounds(participants, roundWinners, 0);
-}
-
 async function createSinglePageBracket(
   pdfDoc,
   bracket,
@@ -399,6 +351,7 @@ async function createSinglePageBracket(
   boldFont,
   additionalInfo = {}
 ) {
+  // kept for backwards compatibility if needed, but our main flow uses createAutoWrappedFixturePage
   const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
   const title = customTitle || "Tournament Bracket";
   const titleWidth = boldFont.widthOfTextAtSize(title, FONT.SIZES.TITLE);
@@ -409,7 +362,6 @@ async function createSinglePageBracket(
     font: boldFont,
   });
 
-  // Add tournament info row (date, country, website) below title
   drawTournamentInfo(
     page,
     additionalInfo,
@@ -498,7 +450,7 @@ function drawBracketRound(
 
       currentY -= BOX.HEIGHT * 2 + verticalSpacing;
     }
-  } else if (round.teams.length > 0) {
+  } else if (round.teams && round.teams.length > 0) {
     if (previousBoxes && previousBoxes.length > 0) {
       for (let matchIndex = 0; matchIndex < round.matchCount; matchIndex++) {
         const boxesPerMatch = 2;
@@ -727,12 +679,7 @@ function drawTeamBox(page, { x, y, teamName, font }) {
     color: COLORS.WHITE,
   });
 
-  if (
-    teamName &&
-    teamName !== "BYE" &&
-    teamName !== null &&
-    teamName !== undefined
-  ) {
+  if (teamName && teamName !== null && teamName !== undefined) {
     let displayName = typeof teamName === "string" ? teamName.trim() : "";
 
     if (
@@ -882,3 +829,5 @@ function drawBracketConnections(page, fromBoxes, toBoxes) {
     }
   }
 }
+
+export default { createTournamentPDF };

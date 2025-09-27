@@ -22,7 +22,6 @@ class TournamentController {
     }
 
     try {
-      console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
 
       const {
         participants,
@@ -33,17 +32,8 @@ class TournamentController {
         date,
         country,
         website,
+        winner = null,
       } = req.body;
-
-      console.log("🔍 Parsed values:", {
-        participants,
-        rounds,
-        name,
-        returnType,
-        date,
-        country,
-        website,
-      });
 
       if (
         !participants ||
@@ -69,6 +59,7 @@ class TournamentController {
         date,
         country,
         website,
+        winner
       };
 
       const pdfResult = await createTournamentPDF(tournament, null, pdfTitle);
@@ -116,8 +107,6 @@ class TournamentController {
             `attachment; filename="${csvFilename}"`
           );
 
-          console.log("✅ Tournament created and CSV generated successfully");
-
           // Send CSV content directly with BOM for Excel compatibility
           const BOM = "\uFEFF";
           return res.status(201).send(BOM + csvContent);
@@ -163,7 +152,7 @@ class TournamentController {
 
     if (Array.isArray(participants) && participants.length > 0) {
       processedRounds[1] = participants
-        .filter((team) => team && team.trim())
+        .filter((team) => team && (team.trim() || team.trim().toUpperCase() === "BYE"))
         .map((team) => team.trim());
     }
 
@@ -174,7 +163,7 @@ class TournamentController {
 
         if (Array.isArray(roundTeams)) {
           processedRounds[roundNumber] = roundTeams
-            .filter((team) => team && team.trim())
+            .filter((team) => team && (team.trim() || team.trim().toUpperCase() === "BYE"))
             .map((team) => team.trim());
         } else {
           processedRounds[roundNumber] = [];
