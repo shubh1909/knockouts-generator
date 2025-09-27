@@ -22,7 +22,6 @@ class TournamentController {
     }
 
     try {
-      console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
 
       const {
         participants,
@@ -35,17 +34,6 @@ class TournamentController {
         website,
         winner = null,
       } = req.body;
-
-      console.log("🔍 Parsed values:", {
-        participants,
-        rounds,
-        name,
-        returnType,
-        date,
-        country,
-        website,
-        winner
-      });
 
       if (
         !participants ||
@@ -118,8 +106,6 @@ class TournamentController {
             "Content-Disposition",
             `attachment; filename="${csvFilename}"`
           );
-
-          console.log("✅ Tournament created and CSV generated successfully");
 
           // Send CSV content directly with BOM for Excel compatibility
           const BOM = "\uFEFF";

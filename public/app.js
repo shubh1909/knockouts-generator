@@ -164,11 +164,6 @@ async function createTournamentWithPDF() {
       }
     );
 
-    console.log("Response status:", response.status);
-    console.log("Response ok:", response.ok);
-    console.log("Response headers:", response.headers);
-    console.log("Request body:", JSON.stringify(requestBody, null, 2));
-
     if ((returnType === "download" || returnType === "csv") && response.ok) {
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -195,9 +190,6 @@ async function createTournamentWithPDF() {
       document.body.removeChild(a);
     } else {
       const data = await response.json();
-
-      console.log("Response data:", data);
-      console.log("Response not ok, status:", response.status);
 
       // Store tournament data for CSV export
       if (data.success && data.data && data.data.tournament) {
