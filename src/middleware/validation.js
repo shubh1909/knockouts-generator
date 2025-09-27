@@ -21,6 +21,7 @@ const tournamentValidation = {
         .items(Joi.array().items(Joi.string().min(1).max(50)))
         .optional()
         .default([]),
+      winner: Joi.string().min(1).max(50).optional(),
       returnType: Joi.string()
         .valid("json", "download", "url", "csv")
         .optional()

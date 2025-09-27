@@ -1,6 +1,6 @@
-const API_BASE = "http://localhost:3001"
+const API_BASE =
+  "https://knockouts-generator.onrender.com" || "https://localhost:3001";
 
-// Store last tournament and PDF data for CSV export
 let lastTournamentData = null;
 let lastPDFData = null;
 
@@ -59,6 +59,35 @@ function handleParticipantsChange() {
     } catch (error) {}
     matchesInRound = Math.ceil(matchesInRound / 2);
   }
+
+  renderWinnerInput();
+}
+
+function renderWinnerInput() {
+  // Remove existing winner input if any
+  const existingWinner = document.getElementById("winner-container");
+  if (existingWinner) existingWinner.remove();
+
+  const roundsContainer = document.querySelector(".input-group")?.parentElement;
+  const responseElement = document.getElementById("response");
+  if (!roundsContainer || !responseElement) return;
+
+  const winnerDiv = document.createElement("div");
+  winnerDiv.className = "input-group";
+  winnerDiv.id = "winner-container";
+
+  const label = document.createElement("label");
+  label.textContent = "Winner Name (after final round):";
+  winnerDiv.appendChild(label);
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "winner-name";
+  input.placeholder = "Enter winner name";
+  input.className = "form-control";
+  winnerDiv.appendChild(input);
+
+  roundsContainer.insertBefore(winnerDiv, responseElement);
 }
 
 function createRoundInput(roundNumber, matchCount) {
@@ -106,6 +135,9 @@ async function createTournamentWithPDF() {
     rounds.push(roundParticipants);
   }
 
+  const winnerInput = document.getElementById("winner-name");
+  const winner = winnerInput?.value?.trim() || null;
+
   try {
     const requestBody = {
       name,
@@ -115,6 +147,7 @@ async function createTournamentWithPDF() {
       date,
       country,
       website,
+      winner,
     };
     if (pdfTitle.trim()) {
       requestBody.pdfTitle = pdfTitle.trim();

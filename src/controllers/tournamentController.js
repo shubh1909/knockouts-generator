@@ -33,6 +33,7 @@ class TournamentController {
         date,
         country,
         website,
+        winner = null,
       } = req.body;
 
       console.log("🔍 Parsed values:", {
@@ -43,6 +44,7 @@ class TournamentController {
         date,
         country,
         website,
+        winner
       });
 
       if (
@@ -69,6 +71,7 @@ class TournamentController {
         date,
         country,
         website,
+        winner
       };
 
       const pdfResult = await createTournamentPDF(tournament, null, pdfTitle);
