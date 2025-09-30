@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PAGE = { WIDTH: 595.28, HEIGHT: 841.89, MARGIN: 30, HEADER_HEIGHT: 50 };
-const BOX = { WIDTH: 100, HEIGHT: 25, PADDING: 3 };
+const BOX = { WIDTH: 100, HEIGHT: 25, DOUBLES_HEIGHT: 35, PADDING: 3 };
 const SPACING = {
   ROUND: 130,
   VERTICAL_BASE: 40,
@@ -213,11 +213,21 @@ async function createAutoWrappedFixturePage(
     const finalBox = lastRoundBoxes[0]; // winner should be in the first/only box of final round
     const winnerText = `Winner: ${additionalInfo.winner}`;
     const fontSize = 14;
+    const winnerX = PAGE.MARGIN + 20;
     const textWidth = boldFont.widthOfTextAtSize(winnerText, fontSize);
+    const maxWidth = PAGE.WIDTH - (PAGE.MARGIN * 2 + 60);
 
-    page.drawText(winnerText, {
-      x: finalBox.x + finalBox.width / 2 - textWidth / 2, // center aligned to final box
-      y: finalBox.y - 100, // 30px below the final match box
+    let displayWinnerText = winnerText;
+    if (textWidth > maxWidth) {
+      // Truncate text if too long
+      const ratio = maxWidth / textWidth;
+      const maxChars = Math.floor(winnerText.length * ratio) - 3;
+      displayWinnerText = winnerText.substring(0, maxChars) + "...";
+    }
+
+     page.drawText(displayWinnerText, {
+      x: winnerX,
+      y: finalBox.y - 50, // 100px below the final match box
       size: fontSize,
       font: boldFont,
       color: rgb(0, 0.5, 0),
@@ -432,7 +442,7 @@ function drawBracketRound(
   });
 
   if (roundIndex === 0) {
-    let currentY = startY - 35;
+    let currentY = startY - 45;
     for (let matchIndex = 0; matchIndex < round.matchCount; matchIndex++) {
       const team1 = round.teams[matchIndex * 2] || null;
       const team2 = round.teams[matchIndex * 2 + 1] || null;
@@ -669,11 +679,14 @@ function drawBracketRound(
 }
 
 function drawTeamBox(page, { x, y, teamName, font }) {
+  const isDoubles = teamName && teamName.includes(",");
+  const boxHeight = isDoubles ? BOX.DOUBLES_HEIGHT : BOX.HEIGHT;
+
   page.drawRectangle({
     x,
     y,
     width: BOX.WIDTH,
-    height: BOX.HEIGHT,
+    height: boxHeight,
     borderWidth: 0.5,
     borderColor: COLORS.BLACK,
     color: COLORS.WHITE,
@@ -687,19 +700,49 @@ function drawTeamBox(page, { x, y, teamName, font }) {
       displayName !== "undefined" &&
       displayName !== "null" &&
       displayName !== ""
-    ) {
-      if (displayName.length > FONT.MAX_TEAM_NAME_LENGTH) {
-        displayName =
-          displayName.substring(0, FONT.MAX_TEAM_NAME_LENGTH - 2) + "..";
-      }
+    )
+      if (isDoubles) {
+        // Split team names and handle each separately
+        const [team1, team2] = displayName.split(",").map((t) => t.trim());
 
-      page.drawText(displayName, {
-        x: x + BOX.PADDING,
-        y: y + BOX.HEIGHT / 2 - 3,
-        size: FONT.SIZES.TEAM_NAME,
-        font,
-      });
-    }
+        // Draw first team name
+        const displayTeam1 =
+          team1.length > FONT.MAX_TEAM_NAME_LENGTH
+            ? team1.substring(0, FONT.MAX_TEAM_NAME_LENGTH - 2) + ".."
+            : team1;
+
+        page.drawText(displayTeam1, {
+          x: x + BOX.PADDING,
+          y: y + boxHeight - 12, // Position for first team
+          size: FONT.SIZES.TEAM_NAME,
+          font,
+        });
+
+        // Draw second team name
+        const displayTeam2 =
+          team2.length > FONT.MAX_TEAM_NAME_LENGTH
+            ? team2.substring(0, FONT.MAX_TEAM_NAME_LENGTH - 2) + ".."
+            : team2;
+
+        page.drawText(displayTeam2, {
+          x: x + BOX.PADDING,
+          y: y + boxHeight - 24, // Position for second team
+          size: FONT.SIZES.TEAM_NAME,
+          font,
+        });
+      } else {
+        if (displayName.length > FONT.MAX_TEAM_NAME_LENGTH) {
+          displayName =
+            displayName.substring(0, FONT.MAX_TEAM_NAME_LENGTH - 2) + "..";
+        }
+
+        page.drawText(displayName, {
+          x: x + BOX.PADDING,
+          y: y + BOX.HEIGHT / 2 - 3,
+          size: FONT.SIZES.TEAM_NAME,
+          font,
+        });
+      }
   }
   return { x, y, width: BOX.WIDTH, height: BOX.HEIGHT };
 }
