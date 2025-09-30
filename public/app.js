@@ -136,7 +136,7 @@ async function createTournamentWithPDF() {
   }
 
   const winnerInput = document.getElementById("winner-name");
-  const winner = winnerInput?.value?.trim() || null;
+  const winner = winnerInput?.value?.trim() || "";
 
   try {
     const requestBody = {
